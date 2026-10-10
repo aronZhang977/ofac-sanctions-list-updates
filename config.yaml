@@ -1,0 +1,99 @@
+# OFAC Sanctions List Updates 监控配置
+
+schedule:
+  # 检查间隔（分钟）。本机可用: python main.py --loop
+  # 迁到服务器后也可用 cron，例如每小时: 0 * * * * cd /path && python main.py
+  interval_minutes: 60
+  timezone: Asia/Shanghai
+
+ofac:
+  list_url: "https://ofac.treasury.gov/recent-actions/sanctions-list-updates"
+  base_url: "https://ofac.treasury.gov"
+  user_agent: "OFACMonitor/1.0 (+local compliance check; contact=ops@example.com)"
+  timeout_seconds: 60
+  # 可选代理，例如 http://127.0.0.1:7890；不需要则保持 null
+  proxy: null
+
+scope:
+  # individual / entity / vessel / aircraft / unknown
+  entity_types:
+    - individual
+    - entity
+    - vessel
+    - aircraft
+    - unknown
+  # add / change / delete
+  change_types:
+    - add
+    - change
+    - delete
+
+excel:
+  output_dir: output
+  # 同一公告按日期覆盖写入（ofac_YYYYMMDD.xlsx），避免时间戳文件堆积
+  overwrite_by_date: true
+  # 最多保留多少个 ofac_*.xlsx；超出删除最旧的
+  max_files: 30
+  # 按天保留（0=不按天删，仅按 max_files）
+  keep_days: 0
+  # 地址/国籍/出生地含 China、Hong Kong 时整行高亮
+  highlight_china_hk:
+    enabled: true
+    keywords:
+      - china
+      - hong kong
+      - hongkong
+      - hong-kong
+    fill_color: "FFF2CC"
+  # 可增删、调顺序；未知字段会被忽略
+  columns:
+    - change_type
+    - entity_type
+    - release_date
+    - name
+    - aliases
+    - dob
+    - pob
+    - nationality
+    - gender
+    - passport
+    - national_id
+    - other_ids
+    - address
+    - program
+    - remarks
+    - source_url
+    - notice_title
+
+email:
+  enabled: false
+  smtp_host: ""          # 例如 smtp.example.com
+  smtp_port: 587
+  use_tls: true
+  username: ""
+  # 密码请用环境变量 SMTP_PASSWORD，不要写在这里
+  password_env: SMTP_PASSWORD
+  from_addr: ""
+  to:
+    - ""
+  subject_template: "OFAC 制裁名单更新 {date}（{count} 条）"
+  body_template: |
+    OFAC Sanctions List Updates 有新变动。
+
+    发布日期: {date}
+    标题: {title}
+    记录数: {count}
+    来源: {source_url}
+
+    Excel 见附件。
+
+paths:
+  state_file: data/state.json
+
+runtime:
+  # once: 跑一次退出；loop: 按 schedule.interval_minutes 循环
+  mode: once
+  # 首次运行是否处理历史条目。false=只记录已存在条目、不发历史邮件
+  process_existing_on_first_run: false
+  # 调试时可设为最近 N 条未处理的更新；0 表示不限制
+  max_notices_per_run: 0
